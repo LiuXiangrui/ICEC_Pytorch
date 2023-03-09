@@ -66,7 +66,7 @@ class Trainer:
 
             H_t_minus1_3 = H_t_minus1_2 = H_t_minus1_1 = H_t_minus1_0 = None
 
-            bpp_list = [torch.zeros(1).to("cuda" if self.args.gpu else "cpu"), ] * self.scales
+            bpp_list = [torch.zeros(1).to("cuda" if self.args.gpu else "cpu") for _ in range(self.scales)]
 
             for x in slices:
                 x = x.unsqueeze(dim=1)
@@ -80,6 +80,7 @@ class Trainer:
                     bpp_list[i] += bpp
 
             for i in range(self.scales):
+                bpp_list[i] /= len(slices)
                 average_bpp_list[i] += bpp_list[i]
 
         average_bpp = sum(average_bpp_list) / len(self.eval_dataloader)
@@ -106,7 +107,7 @@ class Trainer:
 
             H_t_minus1_3 = H_t_minus1_2 = H_t_minus1_1 = H_t_minus1_0 = None
 
-            bpp_list = [torch.zeros(1).to("cuda" if self.args.gpu else "cpu"), ] * self.scales
+            bpp_list = [torch.zeros(1).to("cuda" if self.args.gpu else "cpu") for _ in range(self.scales)]
 
             for x in slices:
                 x = x.unsqueeze(dim=1)

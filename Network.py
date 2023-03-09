@@ -12,19 +12,19 @@ from Modules.EntropyModel import NUM_PARAMS, DiscreteLogisticMixtureModel
 class Network(nn.Module):
     def __init__(self, channels_F: int = 64, channels_M: int = 120, channels_Z: int = 10,
                  K: int = 10, L_slice: int = 256, L_aux: int = 25,
-                 aux_min_: int = -1, aux_max_: int = 1, slice_min_: int = 0, slice_max_: int = 255):
+                 sigma: float = 2, aux_min: float = -1, aux_max: float = 1, slice_min: float = 0, slice_max: float = 255):
         super().__init__()
 
         self.icec_blocks = nn.ModuleList([
             ICEC_SLICE(N=3, R=4,
                        channels_F=channels_F, channels_M=channels_M, channels_Z=channels_Z,
-                       L=L_slice, max_=slice_max_, min_=slice_min_, K=K),
+                       L=L_slice, max_=slice_max, min_=slice_min, K=K),
             ICEC_AUX(D=3, N=1, R=8,
                      channels_F=channels_F, channels_M=channels_M, channels_Z=channels_Z,
-                     L=L_aux, max_=aux_max_, min_=aux_min_, K=K),
+                     L=L_aux, max_=aux_max, min_=aux_min, K=K),
             ICEC_AUX(D=1, N=1, R=8,
                      channels_F=channels_F, channels_M=channels_M, channels_Z=channels_Z,
-                     L=L_aux, max_=aux_max_, min_=aux_min_, K=K),
+                     L=L_aux, max_=aux_max, min_=aux_min, K=K),
         ])
 
         self.param_estimator_for_Z_t_3_with_H_t_minus1_3 = nn.Sequential(
@@ -32,23 +32,23 @@ class Network(nn.Module):
             nn.Conv2d(in_channels=4 * channels_F, out_channels=channels_Z * K * NUM_PARAMS, kernel_size=1)
         )
 
-        self.entropy_model_for_Z_t_3_with_H_t_minus1_3 = DiscreteLogisticMixtureModel(x_min=aux_min_, x_max=aux_max_, K=K, L=L_aux)
+        self.entropy_model_for_Z_t_3_with_H_t_minus1_3 = DiscreteLogisticMixtureModel(x_min=aux_min, x_max=aux_max, K=K, L=L_aux)
 
-        self.conv_latent_slice = nn.Conv2d(in_channels=1, out_channels=64, kernel_size=3, stride=1, padding=1)
+        self.conv_latent_slice = nn.Conv2d(in_channels=1, out_channels=channels_F, kernel_size=3, stride=1, padding=1)
 
         self.feats_extractions = nn.ModuleList([
-            FeatsExtraction(in_channels=1, out_channels=64, num_feats_extraction=3, R=4),
-            FeatsExtraction(in_channels=64, out_channels=64, num_feats_extraction=1, R=8),
-            FeatsExtraction(in_channels=64, out_channels=64, num_feats_extraction=1, R=8)
+            FeatsExtraction(in_channels=1, out_channels=channels_F, num_feats_extraction=3, R=4),
+            FeatsExtraction(in_channels=channels_F, out_channels=channels_F, num_feats_extraction=1, R=8),
+            FeatsExtraction(in_channels=channels_F, out_channels=channels_F, num_feats_extraction=1, R=8)
         ])
 
         self.conv_ahead_of_quant_list = nn.ModuleList([
-            nn.Conv2d(in_channels=64, out_channels=10, kernel_size=3, stride=1, padding=1),
-            nn.Conv2d(in_channels=64, out_channels=10, kernel_size=3, stride=1, padding=1),
-            nn.Conv2d(in_channels=64, out_channels=10, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=channels_F, out_channels=channels_Z, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=channels_F, out_channels=channels_Z, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=channels_F, out_channels=channels_Z, kernel_size=3, stride=1, padding=1),
         ])
 
-        self.soft_quantizer = SoftQuantizer(L=25, min_=-1., max_=1., sigma=2.)
+        self.soft_quantizer = SoftQuantizer(L=L_aux, min_=aux_min, max_=aux_max, sigma=sigma)
 
     def forward(self, X_t: torch.Tensor, H_t_minus1_3: torch.Tensor = None,  H_t_minus1_2: torch.Tensor = None,
                 H_t_minus1_1: torch.Tensor = None, H_t_minus1_0: torch.Tensor = None):
