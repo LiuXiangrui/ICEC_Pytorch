@@ -3,7 +3,7 @@ from einops import rearrange
 from torch import nn as nn, Tensor
 from torch.nn import functional as F
 
-_NUM_PARAMS = 3
+NUM_PARAMS = 3
 _LOG_SCALES_MIN = -7.
 _BOUND_EPS = 0.001
 _CDF_LOWER_BOUND = 1e-12
@@ -62,7 +62,7 @@ class DiscreteLogisticMixtureModel(nn.Module):
         return log_probs
 
     def split_params(self, params: Tensor):
-        params = rearrange(params, 'b (n c k) h w -> b n c k h w', n=_NUM_PARAMS, k=self.K)
+        params = rearrange(params, 'b (n c k) h w -> b n c k h w', n=NUM_PARAMS, k=self.K)
 
         log_weights = torch.log_softmax(params[:, 0, ...], dim=2)
         means = params[:, 1, ...]

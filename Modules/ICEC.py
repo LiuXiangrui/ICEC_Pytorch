@@ -1,32 +1,32 @@
 import torch
 import torch.nn as nn
 
-from BasicBlock import IntraGate, InterGate, ShuffleBlock
-from EntropyModel import _NUM_PARAMS, DiscreteLogisticMixtureModel
+from Modules.BasicBlock import IntraGate, InterGate, ShuffleBlock, StackedAtrousConv
+from Modules.EntropyModel import NUM_PARAMS, DiscreteLogisticMixtureModel
 
 
 class ICEC_AUX(nn.Module):
-    def __init__(self, D: int, N: int, R: int, height: int, width: int,
-                 channels_F: int = 64, channels_M: int = 120, channels_Z: int = 10,
+    def __init__(self, channels_F: int, channels_M: int, channels_Z: int,
+                 D: int, N: int, R: int,
                  L: int = 25, min_: float = -1., max_: float = 1., K: int = 10):
         super().__init__()
 
         self.aux_head = nn.Conv2d(in_channels=channels_Z, out_channels=channels_F, kernel_size=1)
 
-        self.intra_gate = IntraGate(height=height, width=width, channels=channels_F)
+        self.intra_gate = IntraGate(channels=channels_F)
 
         shuffle_blocks = [ShuffleBlock(in_channels=channels_F, out_channels=channels_M, num_res_blocks=R), ]
         shuffle_blocks.extend([ShuffleBlock(in_channels=channels_M, out_channels=channels_M, num_res_blocks=R) for _ in range(N - 1)])
         self.shuffle_blocks = nn.Sequential(*shuffle_blocks)
 
-        self.inter_gate = InterGate(height=height // (2 ** D), width=width // (2 ** D), channels=channels_M)
+        self.inter_gate = InterGate(channels=channels_M)
 
         self.unshuffle_blocks = nn.Sequential(*[nn.PixelUnshuffle(downscale_factor=2) for _ in range(D)])
         self.conv_after_unshuffle = nn.Conv2d(in_channels=channels_F * (4 ** D), out_channels=channels_M, kernel_size=3, stride=1, padding=1)
 
         self.latent_conv = nn.Conv2d(in_channels=channels_M, out_channels=channels_F, kernel_size=1)
 
-        self.params_estimator = nn.Conv2d(in_channels=channels_M, out_channels=channels_Z * K * _NUM_PARAMS, kernel_size=1)
+        self.params_estimator = StackedAtrousConv(in_channels=channels_M, out_channels=channels_Z * K * NUM_PARAMS)
 
         self.entropy_model = DiscreteLogisticMixtureModel(x_min=min_, x_max=max_, L=L, K=K)
 
@@ -58,15 +58,14 @@ class ICEC_AUX(nn.Module):
 
 
 class ICEC_SLICE(nn.Module):
-    def __init__(self, height: int, width: int,
-                 channels_F: int = 64, channels_M: int = 120, channels_Z: int = 10,
+    def __init__(self, channels_F: int = 64, channels_M: int = 120, channels_Z: int = 10,
                  N: int = 3, R: int = 4,
                  L: int = 256, min_: float = 0, max_: float = 255, K: int = 10):
         super().__init__()
 
         self.aux_head = nn.Conv2d(in_channels=channels_Z, out_channels=channels_F, kernel_size=1)
 
-        self.intra_gate = IntraGate(height=height, width=width, channels=channels_F)
+        self.intra_gate = IntraGate(channels=channels_F)
 
         shuffle_blocks = [ShuffleBlock(in_channels=channels_F, out_channels=channels_M, num_res_blocks=R), ]
         shuffle_blocks.extend([ShuffleBlock(in_channels=channels_M, out_channels=channels_M, num_res_blocks=R) for _ in range(N - 1)])
@@ -75,8 +74,8 @@ class ICEC_SLICE(nn.Module):
         self.latent_conv_wo_H_t_minus1_0 = nn.Conv2d(in_channels=channels_M, out_channels=channels_F, kernel_size=1)
         self.latent_conv_with_H_t_minus1_0 = nn.Conv2d(in_channels=channels_M + channels_F, out_channels=channels_F, kernel_size=1)
 
-        self.params_estimator_wo_H_t_minus1_0 = nn.Conv2d(in_channels=channels_M, out_channels=channels_Z * K * _NUM_PARAMS, kernel_size=1)
-        self.params_estimator_with_H_t_minus1_0 = nn.Conv2d(in_channels=channels_M + channels_F, out_channels=channels_Z * K * _NUM_PARAMS, kernel_size=1)
+        self.params_estimator_wo_H_t_minus1_0 = nn.Conv2d(in_channels=channels_M, out_channels=channels_Z * K * NUM_PARAMS, kernel_size=1)
+        self.params_estimator_with_H_t_minus1_0 = nn.Conv2d(in_channels=channels_M + channels_F, out_channels=channels_Z * K * NUM_PARAMS, kernel_size=1)
 
         self.entropy_model = DiscreteLogisticMixtureModel(x_min=min_, x_max=max_, L=L, K=K)
 

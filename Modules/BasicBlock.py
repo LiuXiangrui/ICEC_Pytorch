@@ -17,39 +17,40 @@ class ResBlock(nn.Module):
 
 
 class IntraGate(nn.Module):
-    def __init__(self, height: int, width: int, channels: int):
+    def __init__(self, channels: int):
         super().__init__()
-        self.w_1 = torch.nn.Parameter(torch.ones([1, channels, height, width]), requires_grad=True)
-        self.w_2 = torch.nn.Parameter(torch.ones([1, channels, height, width]), requires_grad=True)
-        self.w_3 = torch.nn.Parameter(torch.ones([1, channels, height, width]), requires_grad=True)
+
+        self.w_1 = torch.nn.Conv2d(in_channels=channels, out_channels=channels, kernel_size=1)
+        self.w_2 = torch.nn.Conv2d(in_channels=channels, out_channels=channels, kernel_size=1)
+        self.w_3 = torch.nn.Conv2d(in_channels=channels, out_channels=channels, kernel_size=1)
 
     def forward(self, aux_feats: torch.Tensor, latent_feats: torch.Tensor) -> torch.Tensor:
-        latent_feats = latent_feats * self.w_1
-        aux_feats = aux_feats * self.w_2
+        latent_feats = self.w_1(latent_feats)
+        aux_feats = self.w_2(aux_feats)
 
         attn_map = torch.sigmoid(latent_feats * aux_feats)
 
-        refined_feats = latent_feats * attn_map + aux_feats * self.w_3
+        refined_feats = latent_feats * attn_map + self.w_3(aux_feats)
 
         return refined_feats
 
 
 class InterGate(nn.Module):
-    def __init__(self, height: int, width: int, channels: int):
+    def __init__(self, channels: int):
         super().__init__()
-        self.height = height
-        self.width = width
-        self.w_4 = torch.nn.Parameter(torch.ones([1, channels, height, width]), requires_grad=True)
-        self.w_5 = torch.nn.Parameter(torch.ones([1, channels, height, width]), requires_grad=True)
+
+        self.w_4 = nn.Conv2d(in_channels=channels, out_channels=channels, kernel_size=1)
+        self.w_5 = nn.Conv2d(in_channels=channels, out_channels=channels, kernel_size=1)
 
     def forward(self, latent_feats: torch.Tensor, refined_feats: torch.Tensor) -> torch.Tensor:
-        latent_feats = latent_feats * self.w_4
+        _, _, height, width = latent_feats.shape
+        latent_feats = self.w_4(latent_feats)
         latent_feats = rearrange(latent_feats, "b c h w -> b c (h w)")
 
-        attn_map = torch.softmax(torch.mm(rearrange(refined_feats, "b c h w -> b (h w) c"), latent_feats), dim=-2)
+        attn_map = torch.softmax(torch.matmul(rearrange(refined_feats, "b c h w -> b (h w) c"), latent_feats), dim=-1)
+        attn_map = rearrange(attn_map, 'b m n -> b n m')
 
-        context_feats = refined_feats * self.w_5 + rearrange(torch.mm(latent_feats, attn_map),
-                                                             "b c (h w) -> b c h w", h=self.height, w=self.width)
+        context_feats = self.w_5(refined_feats) + rearrange(torch.matmul(latent_feats, attn_map), "b c (h w) -> b c h w", h=height, w=width)
 
         return context_feats
 
@@ -65,4 +66,23 @@ class ShuffleBlock(nn.Module):
         x = self.head(x)
         x = self.res_blocks(x)
         x = self.tail(x)
+        return x
+
+
+class StackedAtrousConv(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int):
+        super().__init__()
+        self.atrous_convs = nn.ModuleList([
+            nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=3, stride=1, dilation=1, padding=1),
+            nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=3, stride=1, dilation=2, padding=2),
+            nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=3, stride=1, dilation=4, padding=4),
+
+        ])
+
+        self.output_conv = nn.Conv2d(in_channels=3 * in_channels, out_channels=out_channels, kernel_size=1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = torch.cat([atrous_conv(x) for atrous_conv in self.atrous_convs], dim=1)
+        x = self.output_conv(x)
+
         return x

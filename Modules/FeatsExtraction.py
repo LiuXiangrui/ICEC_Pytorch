@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from BasicBlock import ResBlock
+from Modules.BasicBlock import ResBlock
 
 
 class FeatsExtractionBlock(nn.Module):
