@@ -36,7 +36,7 @@ class Trainer:
         self.scales = 4
 
     def train(self) -> None:
-        start_epoch, best_bpsp = self.load_checkpoints()
+        start_epoch, best_bpp = self.load_checkpoints()
 
         scheduler = MultiStepLR(optimizer=self.optimizer, milestones=self.args.lr_decay_milestone,
                                 gamma=self.args.lr_decay_factor, last_epoch=start_epoch - 1)
@@ -47,9 +47,9 @@ class Trainer:
 
             if epoch % self.args.eval_epochs == 0:
                 bpp = self.eval_one_epoch()
-                if bpp < best_bpsp:
+                if bpp < best_bpp:
                     self.save_ckpt(epoch=epoch, best_bpp=bpp)
-                    best_bpsp = bpp
+                    best_bpp = bpp
 
     @torch.no_grad()
     def eval_one_epoch(self) -> float:
@@ -66,7 +66,7 @@ class Trainer:
 
             H_t_minus1_3 = H_t_minus1_2 = H_t_minus1_1 = H_t_minus1_0 = None
 
-            bpp_list = [torch.zeros(1), ] * 3
+            bpp_list = [torch.zeros(1).to("cuda" if self.args.gpu else "cpu"), ] * self.scales
 
             for x in slices:
                 x = x.unsqueeze(dim=1)
@@ -100,7 +100,7 @@ class Trainer:
             assert num_slices >= self.args.training_slices
 
             start_slice = random.randint(0, num_slices - self.args.training_slices)
-            slices = slices[:, start_slice:, :, :].to("cuda" if self.args.gpu else "cpu")
+            slices = slices[:, start_slice:start_slice + self.args.training_slices, :, :].to("cuda" if self.args.gpu else "cpu")
 
             slices = [slices[:, i, :, :] for i in range(self.args.training_slices)]
 
@@ -126,7 +126,7 @@ class Trainer:
 
             if self.train_steps % 10 == 0:
                 self.tensorboard.add_scalars(main_tag="Train/Bpp", global_step=self.train_steps,
-                                             tag_scalar_dict={"Scale_{}".format(i): bpp_list[i].cpu() for i in range(self.scales)})
+                                             tag_scalar_dict={"Scale_{}".format(i): bpp_list[i].cpu() / self.args.training_slices for i in range(self.scales)})
 
     def save_ckpt(self, epoch: int, best_bpp: float) -> None:
         checkpoint = {

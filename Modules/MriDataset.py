@@ -14,14 +14,15 @@ class MriDataset(Dataset):
             for filepath in os.listdir(os.path.join(root, split, plane)):
                 if os.path.splitext(filepath)[-1] != ".npy":
                     continue
-                data = np.load(os.path.join(root, split, plane, filepath))
-
-                assert data.min() >= 0 and data.max() <= 255
-
-                self.data_list.append(torch.from_numpy(data) * 1.)
+                self.data_list.append(os.path.join(root, split, plane, filepath))
 
     def __getitem__(self, idx: int) -> torch.Tensor:
-        x = self.data_list[idx]
+        data = np.load(self.data_list[idx])
+
+        assert data.min() >= 0 and data.max() <= 255
+
+        x = torch.from_numpy(data) * 1.
+
         return self.transform(x) if self.transform else x
 
     def __len__(self) -> int:

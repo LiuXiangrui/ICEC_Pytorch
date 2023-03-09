@@ -35,6 +35,7 @@ class DiscreteLogisticMixtureModel(nn.Module):
         centered_x = x - means
 
         inv_sigma = torch.exp(-log_scales)
+
         plus_in = inv_sigma * (centered_x + self.bin_width / 2)  # (x - mu + b / 2) / sigma
         cdf_plus = torch.sigmoid(plus_in)
 
@@ -53,7 +54,7 @@ class DiscreteLogisticMixtureModel(nn.Module):
 
         return log_likelihoods
 
-    def get_log_probs(self, x, cdf_delta, log_cdf_plus, log_one_minus_cdf_min):
+    def get_log_probs(self, x: torch.Tensor, cdf_delta: torch.Tensor, log_cdf_plus: torch.Tensor, log_one_minus_cdf_min: torch.Tensor) -> torch.Tensor:
         a = torch.log(torch.clamp(cdf_delta, min=_CDF_LOWER_BOUND))
         condition = (x > self.x_upper_bound).float()
         b = condition * log_one_minus_cdf_min + (1. - condition) * a
@@ -61,7 +62,7 @@ class DiscreteLogisticMixtureModel(nn.Module):
         log_probs = condition * log_cdf_plus + (1. - condition) * b
         return log_probs
 
-    def split_params(self, params: Tensor):
+    def split_params(self, params: Tensor) -> tuple:
         params = rearrange(params, 'b (n c k) h w -> b n c k h w', n=NUM_PARAMS, k=self.K)
 
         log_weights = torch.log_softmax(params[:, 0, ...], dim=2)
