@@ -1,7 +1,6 @@
 import torch
 from einops import rearrange
 from torch import nn as nn
-from torch.nn import functional as F
 
 
 class ResBlock(nn.Module):
@@ -28,7 +27,7 @@ class IntraGate(nn.Module):
         latent_feats = latent_feats * self.w_1
         aux_feats = aux_feats * self.w_2
 
-        attn_map = F.sigmoid(latent_feats * aux_feats)
+        attn_map = torch.sigmoid(latent_feats * aux_feats)
 
         refined_feats = latent_feats * attn_map + aux_feats * self.w_3
 
@@ -47,7 +46,7 @@ class InterGate(nn.Module):
         latent_feats = latent_feats * self.w_4
         latent_feats = rearrange(latent_feats, "b c h w -> b c (h w)")
 
-        attn_map = F.softmax(torch.mm(rearrange(refined_feats, "b c h w -> b (h w) c"), latent_feats), dim=-2)
+        attn_map = torch.softmax(torch.mm(rearrange(refined_feats, "b c h w -> b (h w) c"), latent_feats), dim=-2)
 
         context_feats = refined_feats * self.w_5 + rearrange(torch.mm(latent_feats, attn_map),
                                                              "b c (h w) -> b c h w", h=self.height, w=self.width)
@@ -60,7 +59,7 @@ class ShuffleBlock(nn.Module):
         super().__init__()
         self.head = nn.PixelShuffle(upscale_factor=2)
         self.res_blocks = nn.Sequential(*[ResBlock(channels=in_channels // 4) for _ in range(num_res_blocks)])
-        self.tail = nn.Conv2d(in_channels=in_channels // 4, out_channels=out_channels, kernel_size=3, stride=1)
+        self.tail = nn.Conv2d(in_channels=in_channels // 4, out_channels=out_channels, kernel_size=3, stride=1, padding=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.head(x)
