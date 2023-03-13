@@ -1,12 +1,15 @@
+import os
+import random
+
+import numpy as np
 import torch
 from torch.utils.data import Dataset
-import numpy as np
-import os
 
 
 class MriDataset(Dataset):
-    def __init__(self, root: str, split: str, plane_type: list = ("axial", "coronal", "sagittal"), transform=None) -> None:
+    def __init__(self, root: str, split: str, plane_type: list = ("axial", "coronal", "sagittal"), num_slices: int = None, transform=None) -> None:
         self.transform = transform
+        self.num_slices = num_slices
 
         self.data_list = []
 
@@ -22,6 +25,14 @@ class MriDataset(Dataset):
         assert data.min() >= 0 and data.max() <= 255
 
         x = torch.from_numpy(data) * 1.
+
+        num_slices, _, _ = x.shape
+
+        if self.num_slices is not None:
+            assert num_slices >= self.num_slices
+
+            start_idx = random.randint(0, num_slices - self.num_slices)
+            x = x[start_idx: start_idx + self.num_slices, :, :]
 
         return self.transform(x) if self.transform else x
 

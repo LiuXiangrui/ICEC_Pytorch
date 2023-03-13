@@ -63,6 +63,8 @@ class ICEC_SLICE(nn.Module):
                  L: int = 256, min_: float = 0, max_: float = 255, K: int = 10):
         super().__init__()
 
+        self.channels_X = 1
+
         self.aux_head = nn.Conv2d(in_channels=channels_Z, out_channels=channels_F, kernel_size=1)
 
         self.intra_gate = IntraGate(channels=channels_F)
@@ -74,8 +76,8 @@ class ICEC_SLICE(nn.Module):
         self.latent_conv_wo_H_t_minus1_0 = nn.Conv2d(in_channels=channels_M, out_channels=channels_F, kernel_size=1)
         self.latent_conv_with_H_t_minus1_0 = nn.Conv2d(in_channels=channels_M + channels_F, out_channels=channels_F, kernel_size=1)
 
-        self.params_estimator_wo_H_t_minus1_0 = StackedAtrousConv(in_channels=channels_M, out_channels=channels_Z * K * NUM_PARAMS)
-        self.params_estimator_with_H_t_minus1_0 = StackedAtrousConv(in_channels=channels_F + channels_M, out_channels=channels_Z * K * NUM_PARAMS)
+        self.params_estimator_wo_H_t_minus1_0 = StackedAtrousConv(in_channels=channels_M, out_channels=self.channels_X * K * NUM_PARAMS)
+        self.params_estimator_with_H_t_minus1_0 = StackedAtrousConv(in_channels=channels_F + channels_M, out_channels=self.channels_X * K * NUM_PARAMS)
 
         self.entropy_model = DiscreteLogisticMixtureModel(x_min=min_, x_max=max_, L=L, K=K)
 

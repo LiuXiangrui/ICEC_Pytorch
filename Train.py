@@ -24,8 +24,8 @@ class Trainer:
 
         self.optimizer = RMSprop([{'params': self.net.parameters(), 'initial_lr': self.args.lr}], lr=self.args.lr)
 
-        self.train_dataset = MriDataset(root=self.args.root, split=self.args.train_dataset,
-                                        transform=Compose([RandomHorizontalFlip(p=0.4), RandomVerticalFlip(p=0.4)]))
+        self.train_dataset = MriDataset(root=self.args.root, split=self.args.train_dataset, num_slices=self.args.training_slices,
+                                        transform=Compose([RandomHorizontalFlip(p=0.5), ]))
         self.train_dataloader = DataLoader(dataset=self.train_dataset, batch_size=self.args.batch, shuffle=True, pin_memory=True)
 
         self.eval_dataset = MriDataset(root=self.args.root, split=self.args.eval_dataset)
@@ -97,13 +97,7 @@ class Trainer:
         for slices in tqdm(self.train_dataloader, total=len(self.train_dataloader), ncols=50):
             self.train_steps += 1
 
-            _, num_slices, _, _ = slices.shape
-            assert num_slices >= self.args.training_slices
-
-            start_slice = random.randint(0, num_slices - self.args.training_slices)
-            slices = slices[:, start_slice:start_slice + self.args.training_slices, :, :].to("cuda" if self.args.gpu else "cpu")
-
-            slices = [slices[:, i, :, :] for i in range(self.args.training_slices)]
+            slices = [slices[:, i, :, :].to("cuda" if self.args.gpu else "cpu") for i in range(self.args.training_slices)]
 
             H_t_minus1_3 = H_t_minus1_2 = H_t_minus1_1 = H_t_minus1_0 = None
 

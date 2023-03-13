@@ -15,6 +15,8 @@ class Network(nn.Module):
                  sigma: float = 2, aux_min: float = -1, aux_max: float = 1, slice_min: float = 0, slice_max: float = 255):
         super().__init__()
 
+        self.channels_X = 1
+
         self.icec_blocks = nn.ModuleList([
             ICEC_SLICE(N=3, R=4,
                        channels_F=channels_F, channels_M=channels_M, channels_Z=channels_Z,
@@ -34,10 +36,10 @@ class Network(nn.Module):
 
         self.entropy_model_for_Z_t_3_with_H_t_minus1_3 = DiscreteLogisticMixtureModel(x_min=aux_min, x_max=aux_max, K=K, L=L_aux)
 
-        self.conv_latent_slice = nn.Conv2d(in_channels=1, out_channels=channels_F, kernel_size=3, stride=1, padding=1)
+        self.conv_latent_slice = nn.Conv2d(in_channels=self.channels_X, out_channels=channels_F, kernel_size=3, stride=1, padding=1)
 
         self.feats_extractions = nn.ModuleList([
-            FeatsExtraction(in_channels=1, out_channels=channels_F, num_feats_extraction=3, R=4),
+            FeatsExtraction(in_channels=self.channels_X, out_channels=channels_F, num_feats_extraction=3, R=4),
             FeatsExtraction(in_channels=channels_F, out_channels=channels_F, num_feats_extraction=1, R=8),
             FeatsExtraction(in_channels=channels_F, out_channels=channels_F, num_feats_extraction=1, R=8)
         ])
@@ -88,7 +90,7 @@ class Network(nn.Module):
 
         log_likelihoods = [p_X_t, p_Z_t_1, p_Z_t_2, p_Z_t_3]
 
-        bpp_list = [i.sum() / math.log(2.) / num_pixels for i in log_likelihoods]
+        bpp_list = [l.sum() / math.log(2.) / num_pixels for l in log_likelihoods]
 
         return {
             "LatentFeats": [H_t_0, H_t_1, H_t_2, H_t_3],

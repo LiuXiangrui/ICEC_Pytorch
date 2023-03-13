@@ -31,6 +31,18 @@ class DiscreteLogisticMixtureModel(nn.Module):
 
         log_weights, means, log_scales = self.split_params(params)
 
+        B, C, H, W = x.shape
+        assert log_weights.shape[0] == B and log_weights.shape[1] == C \
+               and log_weights.shape[3] == H and log_weights.shape[4] == W, "invalid weights parameters shape {} " \
+                                                                            "against inputs shape {}".format(log_weights.shape, x.shape)
+        assert means.shape[0] == B and means.shape[1] == C \
+               and means.shape[3] == H and means.shape[4] == W, "invalid means parameters shape {} " \
+                                                                "against inputs shape {}".format(means.shape, x.shape)
+        assert log_scales.shape[0] == B and log_scales.shape[1] == C \
+               and log_scales.shape[3] == H and log_scales.shape[4] == W, "invalid scales parameters shape {} " \
+                                                                          "against inputs shape {}".format(log_scales.shape, x.shape)
+        assert log_weights.shape[2] == self.K and means.shape[2] == self.K and log_scales.shape[2] == self.K
+
         x = x.unsqueeze(dim=2)
         centered_x = x - means
 

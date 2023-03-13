@@ -21,7 +21,7 @@ def parse_args():
     parser.add_argument("--eval_dataset", type=str, default='test', help='the folder name of the testing sub folder')
 
     parser.add_argument("--gpu", action='store_true', default=True, help="use gpu or cpu")
-    parser.add_argument("--batch", type=int, default=1, help="batch size")
+    parser.add_argument("--batch", type=int, default=-1, help="batch size")
     parser.add_argument("--max_epoch", type=int, default=1000, help="max training epochs")
     parser.add_argument("--training_slices", type=int, default=15, help="slices for training")
 
