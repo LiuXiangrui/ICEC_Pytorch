@@ -48,9 +48,8 @@ class InterGate(nn.Module):
         latent_feats = rearrange(latent_feats, "b c h w -> b c (h w)")
 
         attn_map = torch.softmax(torch.matmul(rearrange(refined_feats, "b c h w -> b (h w) c"), latent_feats), dim=-1)
-        attn_map = rearrange(attn_map, 'b m n -> b n m')
 
-        context_feats = self.w_5(refined_feats) + rearrange(torch.matmul(latent_feats, attn_map), "b c (h w) -> b c h w", h=height, w=width)
+        context_feats = self.w_5(refined_feats) + rearrange(torch.matmul(latent_feats, attn_map.permute(0, 2, 1)), "b c (h w) -> b c h w", h=height, w=width)
 
         return context_feats
 

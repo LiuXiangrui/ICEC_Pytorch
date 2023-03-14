@@ -30,9 +30,7 @@ class MriDataset(Dataset):
 
         if self.num_slices is not None:
             assert num_slices >= self.num_slices
-
-            start_idx = random.randint(0, num_slices - self.num_slices)
-            x = x[start_idx: start_idx + self.num_slices, :, :]
+            x = x[: self.num_slices, :, :]
 
         return self.transform(x) if self.transform else x
 

@@ -1,12 +1,9 @@
-import random
-
 import torch
-from torch.optim import RMSprop
+from torch.optim import Adam
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
+from torchvision.transforms import Compose, RandomHorizontalFlip, RandomVerticalFlip
 from tqdm import tqdm
-
-from torchvision.transforms import Compose, RandomVerticalFlip, RandomHorizontalFlip
 
 from Modules.MriDataset import MriDataset
 from Modules.Utils import init
@@ -22,10 +19,11 @@ class Trainer:
 
         self.net = Network().to("cuda" if self.args.gpu else "cpu")
 
-        self.optimizer = RMSprop([{'params': self.net.parameters(), 'initial_lr': self.args.lr}], lr=self.args.lr)
+        self.optimizer = Adam([{'params': self.net.parameters(), 'initial_lr': self.args.lr}], lr=self.args.lr)
 
         self.train_dataset = MriDataset(root=self.args.root, split=self.args.train_dataset, num_slices=self.args.training_slices,
-                                        transform=Compose([RandomHorizontalFlip(p=0.5), ]))
+                                        transform=Compose([RandomHorizontalFlip(p=0.5),
+                                                           RandomVerticalFlip(p=0.5)]))
         self.train_dataloader = DataLoader(dataset=self.train_dataset, batch_size=self.args.batch, shuffle=True, pin_memory=True)
 
         self.eval_dataset = MriDataset(root=self.args.root, split=self.args.eval_dataset)
@@ -112,11 +110,12 @@ class Trainer:
                 H_t_minus1_0, H_t_minus1_1, H_t_minus1_2, H_t_minus1_3 = outputs["LatentFeats"]
 
                 for i, bpp in enumerate(outputs["Bpp"]):
-                    bpp_list[i] += bpp
+                    bpp_list[i] = bpp_list[i] + bpp
 
-            loss = sum(bpp_list)
+            loss = sum(bpp_list) / len(bpp_list)
             self.optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.net.parameters(), max_norm=25)
             self.optimizer.step()
 
             if self.train_steps % 10 == 0:
